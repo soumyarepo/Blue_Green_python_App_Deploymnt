@@ -12,11 +12,23 @@ jobs:
 
     steps:
       - name: Checkout source code
+        run: |
+          echo "Checking out source code from GitHub repository"
         uses: actions/checkout@v4
 
       - name: Set up Docker Buildx
+        run: |
+          echo "Setting up Docker Buildx for image build"
         uses: docker/setup-buildx-action@v3
 
       - name: Build Docker image
         run: |
+          echo "Starting Docker image build"
           docker build -t bluegreen-python-app:latest .
+          echo "Docker image build completed successfully"
+
+      - name: List Docker images
+        run: |
+          echo "Listing available Docker images"
+          docker images
+

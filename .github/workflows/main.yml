@@ -12,14 +12,16 @@ jobs:
 
     steps:
       - name: Checkout source code
-        run: |
-          echo "Checking out source code from GitHub repository"
         uses: actions/checkout@v4
 
+      - name: Print checkout status
+        run: echo "Source code checked out successfully"
+
       - name: Set up Docker Buildx
-        run: |
-          echo "Setting up Docker Buildx for image build"
         uses: docker/setup-buildx-action@v3
+
+      - name: Print Docker setup status
+        run: echo "Docker Buildx setup completed"
 
       - name: Build Docker image
         run: |
@@ -29,6 +31,5 @@ jobs:
 
       - name: List Docker images
         run: |
-          echo "Listing available Docker images"
+          echo "Listing Docker images"
           docker images
-

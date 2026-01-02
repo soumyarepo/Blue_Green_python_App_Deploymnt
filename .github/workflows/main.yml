@@ -5,21 +5,55 @@ on:
     branches:
       - main
 
-jobs:
-  docker-build-push:
-    runs-on: ubuntu-latest
+env:
+  AWS_REGION: ap-south-1
+  ECR_REPO_NAME: blue_green_deploymemnt
+  IMAGE_TAG: latest
 
-    env:
-      AWS_REGION: ap-south-1
-      ECR_REPO_NAME: blue_green_deploymemnt
-      IMAGE_TAG: latest
+jobs:
+  build:
+    name: Build Docker Image
+    runs-on: ubuntu-latest
 
     steps:
       - name: Checkout source code
         uses: actions/checkout@v4
 
       - name: Print checkout status
-        run: echo "📥 Source code checked out successfully"
+        run: echo "Source code checked out successfully"
+
+      - name: Build Docker image
+        run: |
+          echo "Building Docker image"
+          docker build -t $ECR_REPO_NAME:$IMAGE_TAG .
+          echo "Docker image built successfully"
+
+      - name: Save Docker image as artifact
+        run: |
+          echo "Saving Docker image as artifact"
+          docker save $ECR_REPO_NAME:$IMAGE_TAG | gzip > image.tar.gz
+
+      - name: Upload image artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: docker-image
+          path: image.tar.gz
+
+  push:
+    name: Push Docker Image to ECR
+    runs-on: ubuntu-latest
+    needs: build
+
+    steps:
+      - name: Download image artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: docker-image
+
+      - name: Load Docker image
+        run: |
+          echo "Loading Docker image"
+          gunzip -c image.tar.gz | docker load
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -30,15 +64,6 @@ jobs:
 
       - name: Login to Amazon ECR
         uses: aws-actions/amazon-ecr-login@v2
-
-      - name: Print ECR login status
-        run: echo "Logged in to Amazon ECR successfully"
-
-      - name: Build Docker image
-        run: |
-          echo "Building Docker image"
-          docker build -t $ECR_REPO_NAME:$IMAGE_TAG .
-          echo "Docker image built successfully"
 
       - name: Tag Docker image for ECR
         run: |

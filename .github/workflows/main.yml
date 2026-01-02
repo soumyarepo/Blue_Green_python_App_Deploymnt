@@ -11,7 +11,7 @@ jobs:
 
     env:
       AWS_REGION: ap-south-1
-      ECR_REPO_NAME: bluegreen-python-app
+      ECR_REPO_NAME: blue_green_deploymemnt
       IMAGE_TAG: latest
 
     steps:

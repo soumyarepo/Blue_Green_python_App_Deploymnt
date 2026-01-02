@@ -1,0 +1,65 @@
+# ================================
+# Terraform
+# ================================
+**/.terraform/*
+*.tfstate
+*.tfstate.*
+crash.log
+crash.*.log
+.terraform.lock.hcl
+
+# Terraform plan files
+*.tfplan
+
+# Override files
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+# ================================
+# Terraform Variables (Secrets)
+# ================================
+*.tfvars
+*.tfvars.json
+
+# ================================
+# Environment files
+# ================================
+.env
+.env.*
+
+# ================================
+# Logs
+# ================================
+*.log
+
+# ================================
+# OS / Editor files
+# ================================
+.DS_Store
+Thumbs.db
+
+# VS Code
+.vscode/
+
+# IntelliJ / PyCharm
+.idea/
+
+# ================================
+# Python
+# ================================
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# ================================
+# Docker
+# ================================
+*.tar
+
+# ================================
+# GitHub Actions
+# ================================
+.github/workflows/*.log

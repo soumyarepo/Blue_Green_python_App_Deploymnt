@@ -1,0 +1,17 @@
+replicaCount: 2
+
+image:
+  repository: 096803082838.dkr.ecr.ap-south-1.amazonaws.com/blue_green_deploymemnt
+  tag: latest
+  pullPolicy: IfNotPresent
+
+activeColor: blue
+
+service:
+  type: LoadBalancer
+  port: 80
+
+
+ingress:
+  enabled: true
+  host: bluegreen.example.com

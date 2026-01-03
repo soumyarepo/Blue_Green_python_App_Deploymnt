@@ -9,6 +9,9 @@ env:
   AWS_REGION: ap-south-1
   ECR_REPO_NAME: blue_green_deploymemnt
   IMAGE_TAG: latest
+  CLUSTER_NAME: blue_green_deploymt-cluster
+  RELEASE_NAME: bluegreen
+  HELM_CHART_PATH: ./helm
 
 jobs:
   build:
@@ -77,3 +80,20 @@ jobs:
           docker push \
             ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/$ECR_REPO_NAME:$IMAGE_TAG
           echo "Docker image pushed to ECR successfully"
+
+      - name: Update kubeconfig
+        run: |
+          aws eks update-kubeconfig \
+            --name $CLUSTER_NAME \
+            --region $AWS_REGION
+
+      - name: Install Helm
+        uses: azure/setup-helm@v4
+
+      - name: Deploy using Helm (Blue–Green)
+        run: |
+          echo "Deploying application using Helm"
+          helm upgrade --install $RELEASE_NAME $HELM_CHART_PATH \
+            --set image.repository=${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/$ECR_REPO \
+            --set image.tag=latest \
+            --set activeColor=green

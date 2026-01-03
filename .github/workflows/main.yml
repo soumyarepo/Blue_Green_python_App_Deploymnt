@@ -1,4 +1,4 @@
-name: Build and Push Docker Image to ECR
+name: Build, Push & Deploy to EKS (Blue-Green)
 
 on:
   push:
@@ -90,11 +90,29 @@ jobs:
       - name: Install Helm
         uses: azure/setup-helm@v4
 
-      - name: Deploy using Helm (Blue–Green)
+      # =========================
+      # Deployment Stage: Green (Pre-Traffic)
+      # =========================
+      - name: Deploy Green (no traffic yet)
         run: |
-          echo "🚀 Deploying application using Helm (Blue–Green)"
+          echo "🚀 Deploying GREEN version (pre-traffic)"
           cd $HELM_CHART_PATH
           helm upgrade --install $RELEASE_NAME . \
             --set image.repository=${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${AWS_REGION}.amazonaws.com/$ECR_REPO_NAME \
             --set image.tag=$IMAGE_TAG \
+            --set activeColor=blue
+
+      - name: Wait for Green pods to be ready
+        run: |
+          echo "⏳ Waiting for GREEN deployment to become ready"
+          kubectl rollout status deployment/bluegreen-green --timeout=180s
+
+      # =========================
+      # Deployment Stage: Switch Traffic
+      # =========================
+      - name: Switch traffic to Green
+        run: |
+          echo "🔄 Switching traffic to GREEN"
+          cd $HELM_CHART_PATH
+          helm upgrade $RELEASE_NAME . \
             --set activeColor=green

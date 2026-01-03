@@ -3,9 +3,11 @@ kind: Service
 metadata:
   name: {{ .Release.Name }}-svc
 spec:
+  type: {{ .Values.service.type }}
   selector:
     app: bluegreen
     version: {{ .Values.activeColor }}
   ports:
-  - port: {{ .Values.service.port }}
-    targetPort: 5000
+    - port: {{ .Values.service.port }}
+      targetPort: 5000
+

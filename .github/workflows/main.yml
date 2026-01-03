@@ -97,4 +97,4 @@ jobs:
           helm upgrade --install $RELEASE_NAME . \
             --set image.repository=${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${AWS_REGION}.amazonaws.com/$ECR_REPO_NAME \
             --set image.tag=$IMAGE_TAG \
-            --set activeColor=blue
+            --set activeColor=green

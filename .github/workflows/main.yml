@@ -22,18 +22,15 @@ jobs:
       - name: Checkout source code
         uses: actions/checkout@v4
 
-      - name: Print checkout status
-        run: echo "Source code checked out successfully"
-
       - name: Build Docker image
         run: |
-          echo "Building Docker image"
+          echo "🐳 Building Docker image"
           docker build -t $ECR_REPO_NAME:$IMAGE_TAG .
-          echo "Docker image built successfully"
+          echo "✅ Docker image built"
 
       - name: Save Docker image as artifact
         run: |
-          echo "Saving Docker image as artifact"
+          echo "📦 Saving Docker image as artifact"
           docker save $ECR_REPO_NAME:$IMAGE_TAG | gzip > image.tar.gz
 
       - name: Upload image artifact
@@ -42,12 +39,15 @@ jobs:
           name: docker-image
           path: image.tar.gz
 
-  push:
-    name: Push Docker Image to ECR
+  push-deploy:
+    name: Push Image & Deploy to EKS
     runs-on: ubuntu-latest
     needs: build
 
     steps:
+      - name: Checkout source code
+        uses: actions/checkout@v4
+
       - name: Download image artifact
         uses: actions/download-artifact@v4
         with:
@@ -55,7 +55,7 @@ jobs:
 
       - name: Load Docker image
         run: |
-          echo "Loading Docker image"
+          echo "📥 Loading Docker image"
           gunzip -c image.tar.gz | docker load
 
       - name: Configure AWS credentials
@@ -70,19 +70,19 @@ jobs:
 
       - name: Tag Docker image for ECR
         run: |
-          echo "Tagging Docker image"
+          echo "🏷️ Tagging Docker image"
           docker tag $ECR_REPO_NAME:$IMAGE_TAG \
-            ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/$ECR_REPO_NAME:$IMAGE_TAG
+            ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${AWS_REGION}.amazonaws.com/$ECR_REPO_NAME:$IMAGE_TAG
 
       - name: Push Docker image to ECR
         run: |
-          echo "Pushing Docker image to ECR"
+          echo "📤 Pushing Docker image to ECR"
           docker push \
-            ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/$ECR_REPO_NAME:$IMAGE_TAG
-          echo "Docker image pushed to ECR successfully"
+            ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${AWS_REGION}.amazonaws.com/$ECR_REPO_NAME:$IMAGE_TAG
 
       - name: Update kubeconfig
         run: |
+          echo "🔑 Updating kubeconfig"
           aws eks update-kubeconfig \
             --name $CLUSTER_NAME \
             --region $AWS_REGION
@@ -92,8 +92,9 @@ jobs:
 
       - name: Deploy using Helm (Blue–Green)
         run: |
-          echo "Deploying application using Helm"
-          helm upgrade --install $RELEASE_NAME $HELM_CHART_PATH \
-            --set image.repository=${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/$ECR_REPO \
-            --set image.tag=latest \
+          echo "🚀 Deploying application using Helm (Blue–Green)"
+          cd $HELM_CHART_PATH
+          helm upgrade --install $RELEASE_NAME . \
+            --set image.repository=${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${AWS_REGION}.amazonaws.com/$ECR_REPO_NAME \
+            --set image.tag=$IMAGE_TAG \
             --set activeColor=green

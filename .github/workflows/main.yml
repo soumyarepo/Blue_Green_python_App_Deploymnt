@@ -13,6 +13,9 @@ env:
   RELEASE_NAME: bluegreen
   HELM_CHART_PATH: ./helm
 
+# =========================
+# JOB 1: Build Image
+# =========================
 jobs:
   build:
     name: Build Docker Image
@@ -30,7 +33,6 @@ jobs:
 
       - name: Save Docker image as artifact
         run: |
-          echo "📦 Saving Docker image as artifact"
           docker save $ECR_REPO_NAME:$IMAGE_TAG | gzip > image.tar.gz
 
       - name: Upload image artifact
@@ -39,24 +41,22 @@ jobs:
           name: docker-image
           path: image.tar.gz
 
-  push-deploy:
-    name: Push Image & Deploy to EKS
+# =========================
+# JOB 2: Push Image to ECR
+# =========================
+  push:
+    name: Push Docker Image to ECR
     runs-on: ubuntu-latest
     needs: build
 
     steps:
-      - name: Checkout source code
-        uses: actions/checkout@v4
-
       - name: Download image artifact
         uses: actions/download-artifact@v4
         with:
           name: docker-image
 
       - name: Load Docker image
-        run: |
-          echo "📥 Loading Docker image"
-          gunzip -c image.tar.gz | docker load
+        run: gunzip -c image.tar.gz | docker load
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -68,21 +68,33 @@ jobs:
       - name: Login to Amazon ECR
         uses: aws-actions/amazon-ecr-login@v2
 
-      - name: Tag Docker image for ECR
+      - name: Tag & Push Docker image
         run: |
-          echo "🏷️ Tagging Docker image"
-          docker tag $ECR_REPO_NAME:$IMAGE_TAG \
-            ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${AWS_REGION}.amazonaws.com/$ECR_REPO_NAME:$IMAGE_TAG
+          IMAGE_URI=${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${AWS_REGION}.amazonaws.com/$ECR_REPO_NAME:$IMAGE_TAG
+          docker tag $ECR_REPO_NAME:$IMAGE_TAG $IMAGE_URI
+          docker push $IMAGE_URI
 
-      - name: Push Docker image to ECR
-        run: |
-          echo "📤 Pushing Docker image to ECR"
-          docker push \
-            ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${AWS_REGION}.amazonaws.com/$ECR_REPO_NAME:$IMAGE_TAG
+# =========================
+# JOB 3: Deploy to EKS (Blue–Green)
+# =========================
+  deploy:
+    name: Deploy to EKS (Blue-Green)
+    runs-on: ubuntu-latest
+    needs: push
+
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
 
       - name: Update kubeconfig
         run: |
-          echo "🔑 Updating kubeconfig"
           aws eks update-kubeconfig \
             --name $CLUSTER_NAME \
             --region $AWS_REGION
@@ -90,12 +102,11 @@ jobs:
       - name: Install Helm
         uses: azure/setup-helm@v4
 
-      # =========================
-      # Deployment Stage: Green (Pre-Traffic)
-      # =========================
-      - name: Deploy Green (no traffic yet)
+      # -------------------------
+      # Pre-Traffic Deployment
+      # -------------------------
+      - name: Deploy Green (no traffic)
         run: |
-          echo "🚀 Deploying GREEN version (pre-traffic)"
           cd $HELM_CHART_PATH
           helm upgrade --install $RELEASE_NAME . \
             --set image.repository=${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${AWS_REGION}.amazonaws.com/$ECR_REPO_NAME \
@@ -104,15 +115,13 @@ jobs:
 
       - name: Wait for Green pods to be ready
         run: |
-          echo "⏳ Waiting for GREEN deployment to become ready"
           kubectl rollout status deployment/bluegreen-green --timeout=180s
 
-      # =========================
-      # Deployment Stage: Switch Traffic
-      # =========================
+      # -------------------------
+      # Traffic Switch
+      # -------------------------
       - name: Switch traffic to Green
         run: |
-          echo "🔄 Switching traffic to GREEN"
           cd $HELM_CHART_PATH
           helm upgrade $RELEASE_NAME . \
             --set activeColor=green
